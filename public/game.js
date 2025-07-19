@@ -2,7 +2,11 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // 게임 변수
-let player = { x: 50, y: 400, width: 32, height: 48, speed: 5, velY: 0, jumping: false };
+let player = { 
+    x: 50, y: 400, width: 32, height: 48, 
+    speed: 5, velY: 0, jumping: false, 
+    isBig: false, lives: 3 
+};
 let keys = [];
 let gravity = 0.6;
 let friction = 0.8;
@@ -10,7 +14,7 @@ let score = 0;
 let cameraX = 0;
 let levelWidth = 2000;
 
-// 확장된 플랫폼
+// 플랫폼
 let platforms = [
     { x: 0, y: 450, width: 800, height: 30 },
     { x: 200, y: 350, width: 100, height: 10 },
@@ -32,14 +36,22 @@ let coins = [
     { x: 950, y: 250, width: 20, height: 20 }
 ];
 
+// 버섯
+let mushrooms = [
+    { x: 400, y: 300, width: 20, height: 20 }
+];
+
 function update() {
     // 중력과 점프
     player.velY += gravity;
     player.y += player.velY;
     player.velY *= friction;
 
-    // 키 입력
-    if (keys[38] && !player.jumping) { player.jumping = true; player.velY = -15; }
+    // 키 입력 (스페이스바로 점프)
+    if ((keys[32] || keys[38]) && !player.jumping) { 
+        player.jumping = true; 
+        player.velY = -15; 
+    }
     if (keys[37]) { player.x -= player.speed; }
     if (keys[39]) { player.x += player.speed; }
 
@@ -69,15 +81,39 @@ function update() {
         }
     });
 
-    // 적 그리기
+    // 적 처리
     ctx.fillStyle = 'brown';
     enemies.forEach(e => {
         e.x += 2 * e.direction;
         if (e.x < 0 || e.x > levelWidth) e.direction *= -1;
+        
+        // 적과 충돌 체크
         if (player.x < e.x + e.width && player.x + player.width > e.x &&
             player.y < e.y + e.height && player.y + player.height > e.y) {
-            console.log('Game Over!');
+            
+            // 플레이어가 적 위에서 밟았는지 확인
+            if (player.y + player.height < e.y + e.height/2 && player.velY > 0) {
+                // 적을 밟으면 점프
+                player.velY = -15;
+                enemies = enemies.filter(enemy => enemy !== e);
+                score += 100;
+            } else {
+                // 적과 충돌
+                if (player.isBig) {
+                    player.isBig = false;
+                    player.height = 48;
+                } else {
+                    player.lives--;
+                    if (player.lives <= 0) {
+                        console.log('Game Over!');
+                        player.lives = 3;
+                        player.x = 50;
+                        player.y = 400;
+                    }
+                }
+            }
         }
+        
         if (e.x - cameraX > -e.width && e.x - cameraX < canvas.width) {
             ctx.fillRect(e.x - cameraX, e.y, e.width, e.height);
         }
@@ -91,15 +127,33 @@ function update() {
             return false;
         }
         if (c.x - cameraX > -c.width && c.x - cameraX < canvas.width) {
+            ctx.fillStyle = 'gold';
             ctx.fillRect(c.x - cameraX, c.y, c.width, c.height);
         }
         return true;
     });
 
-    // 점수 표시
+    // 버섯 수집 (커지기)
+    mushrooms = mushrooms.filter(m => {
+        if (player.x < m.x + m.width && player.x + player.width > m.x &&
+            player.y < m.y + m.height && player.y + player.height > m.y) {
+            player.isBig = true;
+            player.height = 64;
+            score += 50;
+            return false;
+        }
+        if (m.x - cameraX > -m.width && m.x - cameraX < canvas.width) {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(m.x - cameraX, m.y, m.width, m.height);
+        }
+        return true;
+    });
+
+    // 점수 및 목숨 표시
     ctx.fillStyle = 'black';
     ctx.font = '24px Arial';
     ctx.fillText(`Score: ${score}`, 10, 30);
+    ctx.fillText(`Lives: ${player.lives}`, 10, 60);
 
     // 플랫폼 충돌
     platforms.forEach(p => {
@@ -110,6 +164,20 @@ function update() {
             player.y = p.y - player.height;
         }
     });
+
+    // 땅에 떨어지면 죽음
+    if (player.y > canvas.height) {
+        player.lives--;
+        if (player.lives <= 0) {
+            console.log('Game Over!');
+            player.lives = 3;
+            player.x = 50;
+            player.y = 400;
+        } else {
+            player.x = 50;
+            player.y = 400;
+        }
+    }
 
     // 레벨 끝 도달 시
     if (player.x > levelWidth) {
