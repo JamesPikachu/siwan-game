@@ -47,10 +47,33 @@ function update() {
     player.y += player.velY;
     player.velY *= friction;
 
-    // 키 입력 (스페이스바로 점프)
-    if ((keys[32] || keys[38]) && !player.jumping) { 
-        player.jumping = true; 
-        player.velY = -15; 
+    // 키 입력 (스페이스바로 점프 - 수정된 부분)
+    if ((keys[32] || keys[38]) && !player.jumping) {
+        player.jumping = true;
+        player.velY = -15;
+        console.log('점프!'); // 디버깅용
+    }
+
+    // 땅에 떨어지면 죽음 (수정된 부분)
+    if (player.y > canvas.height) {
+        player.lives--;
+        
+        // 가장 가까운 플랫폼 찾기
+        let nearestPlatform = platforms.reduce((prev, curr) => {
+            return (curr.x < player.x && curr.x > prev.x) ? curr : prev;
+        }, platforms[0]);
+        
+        if (player.lives <= 0) {
+            console.log('Game Over!');
+            player.lives = 3;
+            player.x = 50;
+            player.y = 400;
+        } else {
+            // 가장 가까운 플랫폼 뒤쪽에서 리스폰
+            player.x = nearestPlatform.x - 100;
+            player.y = nearestPlatform.y - player.height;
+            console.log('리스폰 위치:', player.x, player.y);
+        }
     }
     if (keys[37]) { player.x -= player.speed; }
     if (keys[39]) { player.x += player.speed; }
